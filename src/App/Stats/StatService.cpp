@@ -13,6 +13,23 @@ static_assert(std::string_view(Red::GetTypeNameStr<Red::game::data::StatType>().
 
 bool s_statTypesModified = false;
 bool s_statsHookInstalled = false;
+
+// The number of built-in stats differs between game versions (2.5 added three), so Count/Invalid are read from the
+// live gamedataStatType enum; the SDK's compile-time values are only the fallback.
+uint32_t s_baseStatCount = BaseStatCount;
+uint32_t s_invalidStat = InvalidStat;
+
+void ResolveStatLimits(Red::CEnum* aEnum)
+{
+    const Red::CName count("Count"), invalid("Invalid");
+    for (uint32_t i = 0; i != aEnum->hashList.Size(); ++i)
+    {
+        if (aEnum->hashList[i] == count)
+            s_baseStatCount = static_cast<uint32_t>(aEnum->valueList[i]);
+        else if (aEnum->hashList[i] == invalid)
+            s_invalidStat = static_cast<uint32_t>(aEnum->valueList[i]);
+    }
+}
 }
 
 void App::StatService::OnBootstrap()
@@ -70,6 +87,8 @@ void App::StatService::RegisterStats(void* aStatSystem, const Core::Set<Red::Twe
         return;
     }
 
+    ResolveStatLimits(statTypeEnum);
+
     auto& tweakManager = Core::Resolve<TweakService>()->GetManager();
 
     for (const auto& recordID : aRecordIDs)
@@ -95,7 +114,7 @@ void App::StatService::RegisterStats(void* aStatSystem, const Core::Set<Red::Twe
             continue;
         }
 
-        if (statRecords->Size() == BaseStatCount)
+        if (statRecords->Size() == s_baseStatCount)
         {
             // Add dummy entries for "Count" and "Invalid"
             statRecords->EmplaceBack();
@@ -125,7 +144,7 @@ void App::StatService::RegisterStats(void* aStatSystem, const Core::Set<Red::Twe
 #ifdef __APPLE__
 Raw::StatsDataSystem::StatRange App::StatService::OnGetStatRange(void* aSystem, uint32_t aStat)
 {
-    if (aStat != InvalidStat)
+    if (aStat != s_invalidStat)
     {
         auto& statParams = Raw::StatsDataSystem::StatParams::Ref(aSystem);
         auto& statLock = Raw::StatsDataSystem::StatLock::Ref(aSystem);
@@ -142,7 +161,7 @@ Raw::StatsDataSystem::StatRange App::StatService::OnGetStatRange(void* aSystem, 
 #else
 uint64_t* App::StatService::OnGetStatRange(void* aSystem, uint64_t* aRange, uint32_t aStat)
 {
-    if (aStat != InvalidStat)
+    if (aStat != s_invalidStat)
     {
         auto& statParams = Raw::StatsDataSystem::StatParams::Ref(aSystem);
         auto& statLock = Raw::StatsDataSystem::StatLock::Ref(aSystem);
@@ -162,7 +181,7 @@ uint64_t* App::StatService::OnGetStatRange(void* aSystem, uint64_t* aRange, uint
 
 uint32_t App::StatService::OnGetStatFlags(void* aSystem, uint32_t aStat)
 {
-    if (aStat != InvalidStat)
+    if (aStat != s_invalidStat)
     {
         auto& statParams = Raw::StatsDataSystem::StatParams::Ref(aSystem);
         auto& statLock = Raw::StatsDataSystem::StatLock::Ref(aSystem);
@@ -179,7 +198,7 @@ uint32_t App::StatService::OnGetStatFlags(void* aSystem, uint32_t aStat)
 
 bool App::StatService::OnCheckStatFlag(void* aSystem, uint32_t aStat, uint32_t aFlag)
 {
-    if (aStat != InvalidStat)
+    if (aStat != s_invalidStat)
     {
         auto& statParams = Raw::StatsDataSystem::StatParams::Ref(aSystem);
         auto& statLock = Raw::StatsDataSystem::StatLock::Ref(aSystem);

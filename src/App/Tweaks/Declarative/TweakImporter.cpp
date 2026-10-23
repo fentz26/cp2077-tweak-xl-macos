@@ -33,6 +33,11 @@ void App::TweakImporter::ImportTweaks(const Core::Vector<std::filesystem::path>&
                     importPath, std::filesystem::directory_options::follow_directory_symlink);
                 for (const auto& entry : dirIt)
                 {
+#ifdef __APPLE__
+                    // AppleDouble sidecars that macOS writes on exFAT/FAT volumes ("._name.yaml") are not tweaks.
+                    if (entry.path().filename().string().starts_with("._"))
+                        continue;
+#endif
                     if (entry.is_regular_file())
                     {
                         if (IsFirstPriority(entry.path()))
